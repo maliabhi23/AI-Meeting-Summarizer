@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AI Meeting Summarizer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 20px; max-width: 900px }
+    h1 { margin-bottom: 0.2rem }
+    small { color: #666 }
+    textarea, input, button { width: 100%; padding: 10px; margin: 6px 0; box-sizing: border-box }
+    textarea { min-height: 180px }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px }
+    .card { border: 1px solid #ddd; padding: 12px; border-radius: 8px; margin: 12px 0 }
+    .actions { display: flex; gap: 8px }
+    .actions button { width: auto }
+    .muted { color: #777; font-size: 12px }
+    #status { margin: 8px 0; min-height: 22px }
+  </style>
+</head>
+<body>
+  <h1>AI Meeting Summarizer</h1>
+  <small>Upload transcript → add instruction → Generate → Edit → Email</small>
+
+  <div class="card">
+    <label>Custom Instruction (prompt)</label>
+    <input id="prompt" placeholder="e.g., Summarize in bullet points for executives; highlight decisions and action items." />
+
+    <div class="row">
+      <div>
+        <label>Paste Transcript</label>
+        <textarea id="transcript" placeholder="Paste meeting transcript here..."></textarea>
+      </div>
+      <div>
+        <label>Or Upload .txt File</label>
+        <input id="file" type="file" accept=".txt" />
+        <div class="muted">Max 5MB .txt</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="gen">Generate Summary</button>
+      <button id="clear">Clear</button>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div class="card">
+    <label>Editable Summary</label>
+    <textarea id="summary" placeholder="Generated summary appears here. You can edit it."></textarea>
+  </div>
+
+  <div class="card">
+    <label>Recipients (comma-separated emails)</label>
+    <input id="recipients" placeholder="person1@example.com, person2@example.com" />
+    <label>Email Subject (optional)</label>
+    <input id="subject" placeholder="Meeting Summary" />
+    <div class="actions">
+      <button id="send">Send Email</button>
+    </div>
+    <div id="statusEmail"></div>
+  </div>
+
+  <script>
+    const BACKEND = localStorage.getItem('BACKEND_URL') || 'https://mango-backend-done.onrender.com';
+
+    function setStatus(msg) { document.getElementById('status').textContent = msg || ''; }
+    function setStatusEmail(msg) { document.getElementById('statusEmail').textContent = msg || ''; }
+
+    document.getElementById('clear').onclick = () => {
+      document.getElementById('prompt').value = '';
+      document.getElementById('transcript').value = '';
+      document.getElementById('file').value = '';
+      setStatus('');
+    };
+
+    document.getElementById('gen').onclick = async () => {
+      setStatus('Generating...');
+      const prompt = document.getElementById('prompt').value;
+      const transcript = document.getElementById('transcript').value;
+      const file = document.getElementById('file').files[0];
+
+      try {
+        const headers = { 'X-Action': 'generate-click' };
+        let resp;
+
+        if (file) {
+          const fd = new FormData();
+          fd.append('prompt', prompt);
+          fd.append('file', file);
+          resp = await fetch(`${BACKEND}/summarize`, { method: 'POST', body: fd, headers });
+        } else {
+          resp = await fetch(`${BACKEND}/summarize`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...headers },
+            body: JSON.stringify({ prompt, transcript })
+          });
+        }
+
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Failed to summarize');
+
+        document.getElementById('summary').value = data.summary || '';
+        setStatus('Done ✔');
+      } catch (e) {
+        setStatus('Error: ' + e.message);
+      }
+    };
+
+    document.getElementById('send').onclick = async () => {
+      setStatusEmail('Sending...');
+      const summary = document.getElementById('summary').value;
+      const recipients = document.getElementById('recipients').value;
+      const subject = document.getElementById('subject').value;
+
+      try {
+        const resp = await fetch(`${BACKEND}/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Action': 'email-click' },
+          body: JSON.stringify({ recipients, summary, subject })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Failed to send email');
+
+        setStatusEmail('Email sent ✔');
+      } catch (e) {
+        setStatusEmail('Error: ' + e.message);
+      }
+    };
+  </script>
+</body>
+</html>
