@@ -8,7 +8,7 @@ It allows users to generate concise summaries of text or links using the **Groq 
 ## 🚀 Live Demo
 Frontend: [AI Summarizer on Netlify](https://cheerful-macaron-fc593a.netlify.app/)  
 Backend: (Deployed on Render – Add link once deployed)
-
+https://mango-backend-done.onrender.com
 ---
 
 ## 🛠️ Tech Stack
